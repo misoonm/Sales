@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة المحلات التجارية</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-store"></i>
+                    <h1>نظام إدارة المحلات</h1>
+                </div>
+                <div class="user-info">
+                    <span id="current-date"></span>
+                    <span>مرحباً، مدير النظام</span>
+                    <button id="logout-btn" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-container">
+            <nav class="sidebar">
+                <ul class="nav-menu">
+                    <li>
+                        <a href="#" data-section="dashboard" class="nav-link active">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span>لوحة التحكم</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-section="products" class="nav-link">
+                            <i class="fas fa-box"></i>
+                            <span>إدارة المنتجات</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-section="pos" class="nav-link">
+                            <i class="fas fa-cash-register"></i>
+                            <span>نقطة البيع</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-section="reports" class="nav-link">
+                            <i class="fas fa-chart-line"></i>
+                            <span>التقارير والإحصائيات</span>
+                        </a>
+                    </li>
+                </ul>
+                
+                <div class="sidebar-footer">
+                    <div class="system-status">
+                        <i class="fas fa-database"></i>
+                        <span>وضع عدم الاتصال</span>
+                    </div>
+                </div>
+            </nav>
+
+            <main class="main-content">
+                <!-- قسم لوحة التحكم -->
+                <section id="dashboard-section" class="content-section active">
+                    <div class="section-header">
+                        <h2>لوحة التحكم الرئيسية</h2>
+                        <p>نظرة عامة على أداء متجرك</p>
+                    </div>
+                    
+                    <div class="stats-cards">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-shopping-cart"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>إجمالي المبيعات</h3>
+                                <span class="value" id="total-sales">0.00 ر.س</span>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-boxes"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>عدد المنتجات</h3>
+                                <span class="value" id="total-products">0</span>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>منتجات منخفضة المخزون</h3>
+                                <span class="value" id="low-stock-count">0</span>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-calendar-day"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>المبيعات اليوم</h3>
+                                <span class="value" id="today-sales">0.00 ر.س</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-content">
+                        <div class="dashboard-column">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3>المنتجات الأكثر مبيعاً</h3>
+                                </div>
+                                <div class="card-body">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>اسم المنتج</th>
+                                                <th>الكمية المباعة</th>
+                                                <th>الإيرادات</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="top-products-list">
+                                            <tr>
+                                                <td colspan="4" class="text-center">لا توجد بيانات</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3>إشعارات وتحذيرات</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div id="notifications-container">
+                                        <!-- سيتم ملئه بالبيانات -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="dashboard-column">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3>المنتجات التي أوشكت على النفاذ</h3>
+                                </div>
+                                <div class="card-body">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>اسم المنتج</th>
+                                                <th>الفئة</th>
+                                                <th>المخزون المتبقي</th>
+                                                <th>الإجراء</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="low-stock-list">
+                                            <tr>
+                                                <td colspan="4" class="text-center">لا توجد منتجات منخفضة المخزون</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3>آخر المبيعات</h3>
+                                </div>
+                                <div class="card-body">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>رقم الفاتورة</th>
+                                                <th>التاريخ</th>
+                                                <th>المبلغ</th>
+                                                <th>طريقة الدفع</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="recent-sales">
+                                            <tr>
+                                                <td colspan="4" class="text-center">لا توجد مبيعات</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- قسم إدارة المنتجات -->
+                <section id="products-section" class="content-section">
+                    <div class="section-header">
+                        <h2>إدارة المنتجات</h2>
+                        <p>إضافة وتعديل وحذف المنتجات في المتجر</p>
+                    </div>
+                    
+                    <div class="action-bar">
+                        <div class="search-box">
+                            <input type="text" id="product-search" placeholder="ابحث عن منتج...">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <button id="add-product-btn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> إضافة منتج جديد
+                        </button>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-body">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>اسم المنتج</th>
+                                        <th>الفئة</th>
+                                        <th>السعر</th>
+                                        <th>الكمية</th>
+                                        <th>الحالة</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="products-table">
+                                    <tr>
+                                        <td colspan="7" class="text-center">لا توجد منتجات مسجلة</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- قسم نقطة البيع -->
+                <section id="pos-section" class="content-section">
+                    <div class="section-header">
+                        <h2>نقطة البيع (POS)</h2>
+                        <p>معالجة المبيعات وعمليات البيع</p>
+                    </div>
+                    
+                    <div class="pos-container">
+                        <div class="pos-products">
+                            <div class="pos-header">
+                                <div class="search-box">
+                                    <input type="text" id="pos-search" placeholder="ابحث عن منتج...">
+                                    <i class="fas fa-search"></i>
+                                </div>
+                                <div class="barcode-section">
+                                    <input type="text" id="barcode-input" placeholder="مسح الباركود">
+                                    <i class="fas fa-barcode"></i>
+                                </div>
+                            </div>
+                            
+                            <div class="products-grid" id="pos-products">
+                                <!-- سيتم ملئه بالمنتجات -->
+                            </div>
+                        </div>
+                        
+                        <div class="pos-cart">
+                            <div class="cart-container">
+                                <div class="cart-header">
+                                    <h3>سلة المشتريات</h3>
+                                    <button id="clear-cart" class="btn btn-sm btn-danger">مسح السلة</button>
+                                </div>
+                                
+                                <div class="cart-items" id="cart-items">
+                                    <!-- سيتم ملئه بالمنتجات المضافة -->
+                                    <div class="empty-cart">
+                                        <i class="fas fa-shopping-cart"></i>
+                                        <p>السلة فارغة</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="cart-summary">
+                                    <div class="summary-row">
+                                        <span>الإجمالي:</span>
+                                        <span id="cart-subtotal">0.00 ر.ي</span>
+                                    </div>
+                                    <div class="summary-row">
+                                        <span>الضريبة (15%):</span>
+                                        <span id="cart-tax">0.00 ر.ي</span>
+                                    </div>
+                                    <div class="summary-row total">
+                                        <span>المبلغ الإجمالي:</span>
+                                        <span id="cart-total">0.00 ر.ي</span>
+                                    </div>
+                                    
+                                    <div class="payment-methods">
+                                        <h4>طريقة الدفع:</h4>
+                                        <div class="methods">
+                                            <label class="method-btn">
+                                                <input type="radio" name="payment-method" value="cash" checked>
+                                                <span>نقدي</span>
+                                            </label>
+                                            <label class="method-btn">
+                                                <input type="radio" name="payment-method" value="card">
+                                                <span>بطاقة</span>
+                                            </label>
+                                            <label class="method-btn">
+                                                <input type="radio" name="payment-method" value="transfer">
+                                                <span>تحويل</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <button id="complete-sale" class="btn btn-success btn-lg">
+                                        <i class="fas fa-check"></i> إتمام عملية البيع
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- قسم التقارير -->
+                <section id="reports-section" class="content-section">
+                    <div class="section-header">
+                        <h2>التقارير والإحصائيات</h2>
+                        <p>تحليل أداء المتجر والمبيعات</p>
+                    </div>
+                    
+                    <div class="reports-filter">
+                        <div class="filter-group">
+                            <label>الفترة:</label>
+                            <select id="report-period">
+                                <option value="day">اليوم</option>
+                                <option value="week">أسبوع</option>
+                                <option value="month">شهر</option>
+                                <option value="year">سنة</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label>من:</label>
+                            <input type="date" id="report-from">
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label>إلى:</label>
+                            <input type="date" id="report-to">
+                        </div>
+                        
+                        <button id="generate-report" class="btn btn-primary">
+                            <i class="fas fa-chart-bar"></i> توليد التقرير
+                        </button>
+                    </div>
+                    
+                    <div class="reports-content">
+                        <div class="report-card">
+                            <div class="card-header">
+                                <h3>تقارير المبيعات</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="sales-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="report-card">
+                            <div class="card-header">
+                                <h3>تقارير المخزون</h3>
+                            </div>
+                            <div class="card-body">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>اسم المنتج</th>
+                                            <th>الفئة</th>
+                                            <th>المخزون الحالي</th>
+                                            <th>قيمة المخزون</th>
+                                            <th>الحالة</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="inventory-report">
+                                        <tr>
+                                            <td colspan="5" class="text-center">لا توجد بيانات</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+    
+    <!-- نموذج إضافة/تعديل منتج -->
+    <div id="product-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">إضافة منتج جديد</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="product-form">
+                    <input type="hidden" id="product-id">
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="product-name">اسم المنتج *</label>
+                            <input type="text" id="product-name" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="product-category">الفئة *</label>
+                            <select id="product-category" required>
+                                <option value="">اختر الفئة</option>
+                                <option value="غذائية">غذائية</option>
+                                <option value="ملابس">ملابس</option>
+                                <option value="إلكترونيات">إلكترونيات</option>
+                                <option value="منزلية">منزلية</option>
+                                <option value="محروقات">محروقات</option>
+                                <option value="أخرى">أخرى</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="product-price">السعر (ر.ي) *</label>
+                            <input type="number" id="product-price" min="0" step="0.01" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="product-quantity">الكمية *</label>
+                            <input type="number" id="product-quantity" min="0" required>
+                        </div>
+                    </div>
+                    
+                    <div id="food-fields" class="category-fields" style="display: none;">
+                        <div class="form-group">
+                            <label for="expiry-date">تاريخ انتهاء الصلاحية</label>
+                            <input type="date" id="expiry-date">
+                        </div>
+                    </div>
+                    
+                    <div id="clothing-fields" class="category-fields" style="display: none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="clothing-size">المقاس</label>
+                                <select id="clothing-size">
+                                    <option value="">اختر المقاس</option>
+                                    <option value="S">S</option>
+                                    <option value="M">M</option>
+                                    <option value="L">L</option>
+                                    <option value="XL">XL</option>
+                                    <option value="XXL">XXL</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="clothing-color">اللون</label>
+                                <input type="text" id="clothing-color">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="product-description">وصف المنتج</label>
+                        <textarea id="product-description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary close-modal">إلغاء</button>
+                <button id="save-product" class="btn btn-primary">حفظ المنتج</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- نموذج إشعار -->
+    <div id="notification-toast" class="toast">
+        <div class="toast-content">
+            <i class="fas fa-bell"></i>
+            <div class="toast-message"></div>
+        </div>
+    </div>
+
+    <script src="database.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
