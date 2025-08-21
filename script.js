@@ -1,4 +1,4 @@
-// تطبيق إدارة المحلات التجارية
+// تطبيق إدارة المحلات التجارية - الإصدار المحسن
 document.addEventListener('DOMContentLoaded', function() {
     // تهيئة التطبيق
     initApp();
@@ -6,6 +6,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // إضافة مستمعي الأحداث
     setupEventListeners();
 });
+
+// متغيرات التطبيق
+let cart = [];
+let currentChart = null;
 
 // تهيئة التطبيق
 function initApp() {
@@ -17,6 +21,9 @@ function initApp() {
     
     // تحميل البيانات الأولية
     loadInitialData();
+    
+    // تهيئة كاميرا الباركود إذا كانت مدعومة
+    initBarcodeScanner();
 }
 
 // إعداد مستمعي الأحداث
@@ -53,6 +60,11 @@ function setupEventListeners() {
     
     // تسجيل الخروج
     document.getElementById('logout-btn').addEventListener('click', logout);
+    
+    // أحداث جديدة للباركود والطباعة
+    document.getElementById('enable-camera').addEventListener('click', startBarcodeScanner);
+    document.getElementById('disable-camera').addEventListener('click', stopBarcodeScanner);
+    document.getElementById('print-receipt').addEventListener('click', printReceipt);
 }
 
 // تحديث التاريخ الحالي
@@ -112,26 +124,22 @@ function loadDashboard() {
 
 // تحديث إحصائيات لوحة التحكم
 function updateDashboardStats() {
-    const products = db.getAllProducts();
+    const stats = db.getStats();
+    
+    document.getElementById('total-sales').textContent = stats.totalSales.toFixed(2) + ' ر.س';
+    document.getElementById('total-products').textContent = stats.totalProducts;
+    document.getElementById('low-stock-count').textContent = stats.lowStockCount;
+    document.getElementById('today-sales').textContent = getTodaySales().toFixed(2) + ' ر.س';
+    document.getElementById('inventory-value').textContent = stats.inventoryValue.toFixed(2) + ' ر.س';
+}
+
+// الحصول على مبيعات اليوم
+function getTodaySales() {
     const sales = db.getAllSales();
-    
-    // حساب إجمالي المبيعات
-    const totalSales = sales.reduce((sum, sale) => sum + sale.total, 0);
-    document.getElementById('total-sales').textContent = totalSales.toFixed(2) + ' ر.س';
-    
-    // عدد المنتجات
-    document.getElementById('total-products').textContent = products.length;
-    
-    // عدد المنتجات منخفضة المخزون
-    const lowStockCount = db.getLowStockProducts().length;
-    document.getElementById('low-stock-count').textContent = lowStockCount;
-    
-    // مبيعات اليوم
     const today = new Date().toISOString().split('T')[0];
-    const todaySales = sales
+    return sales
         .filter(sale => sale.date.startsWith(today))
         .reduce((sum, sale) => sum + sale.total, 0);
-    document.getElementById('today-sales').textContent = todaySales.toFixed(2) + ' ر.س';
 }
 
 // تحميل المنتجات منخفضة المخزون
@@ -152,7 +160,7 @@ function loadLowStockProducts() {
             <td>${product.name}</td>
             <td>${product.category}</td>
             <td><span class="badge badge-warning">${product.quantity}</span></td>
-            <td><button class="btn btn-primary btn-sm">إعادة التوريد</button></td>
+            <td><button class="btn btn-primary btn-sm" onclick="restockProduct('${product.id}')">إعادة التوريد</button></td>
         `;
         lowStockList.appendChild(row);
     });
@@ -160,25 +168,23 @@ function loadLowStockProducts() {
 
 // تحميل المنتجات الأكثر مبيعاً
 function loadTopSellingProducts() {
-    // هذه بيانات تجريبية - في تطبيق حقيقي سيتم حسابها من المبيعات
-    const topProducts = [
-        { name: 'أرز بسمتي', sales: 150, revenue: 3750 },
-        { name: 'سكر', sales: 120, revenue: 1800 },
-        { name: 'بنطلون جينز', sales: 95, revenue: 11400 },
-        { name: 'قميص رجالي', sales: 80, revenue: 6400 },
-        { name: 'بنزين 95', sales: 75, revenue: 163.5 }
-    ];
-    
+    const topProducts = db.getTopSellingProducts();
     const topProductsList = document.getElementById('top-products-list');
+    
     topProductsList.innerHTML = '';
+    
+    if (topProducts.length === 0) {
+        topProductsList.innerHTML = '<tr><td colspan="4" class="text-center">لا توجد بيانات</td></tr>';
+        return;
+    }
     
     topProducts.forEach((product, index) => {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${index + 1}</td>
             <td>${product.name}</td>
-            <td>${product.sales}</td>
-            <td>${product.revenue.toFixed(2)} ر.ي</td>
+            <td>${product.sold || 0}</td>
+            <td>${((product.sold || 0) * product.price).toFixed(2)} ر.س</td>
         `;
         topProductsList.appendChild(row);
     });
@@ -202,7 +208,7 @@ function loadRecentSales() {
         row.innerHTML = `
             <td>${sale.id.slice(-6)}</td>
             <td>${saleDate.toLocaleDateString('ar-SA')}</td>
-            <td>${sale.total.toFixed(2)} ر.ي</td>
+            <td>${sale.total.toFixed(2)} ر.س</td>
             <td>${getPaymentMethodName(sale.paymentMethod)}</td>
         `;
         recentSales.appendChild(row);
@@ -213,6 +219,7 @@ function loadRecentSales() {
 function loadNotifications() {
     const notificationsContainer = document.getElementById('notifications-container');
     const lowStockProducts = db.getLowStockProducts();
+    const expiredProducts = getExpiredProducts();
     
     notificationsContainer.innerHTML = '';
     
@@ -227,7 +234,22 @@ function loadNotifications() {
             </div>
         `;
         notificationsContainer.appendChild(notification);
-    } else {
+    }
+    
+    if (expiredProducts.length > 0) {
+        const notification = document.createElement('div');
+        notification.className = 'notification danger';
+        notification.innerHTML = `
+            <i class="fas fa-skull-crossbones"></i>
+            <div>
+                <h4>خطر: منتجات منتهية الصلاحية</h4>
+                <p>هناك ${expiredProducts.length} منتج منتهي الصلاحية يجب إزالته من المخزون</p>
+            </div>
+        `;
+        notificationsContainer.appendChild(notification);
+    }
+    
+    if (lowStockProducts.length === 0 && expiredProducts.length === 0) {
         const notification = document.createElement('div');
         notification.className = 'notification info';
         notification.innerHTML = `
@@ -239,6 +261,16 @@ function loadNotifications() {
         `;
         notificationsContainer.appendChild(notification);
     }
+}
+
+// الحصول على المنتجات المنتهية الصلاحية
+function getExpiredProducts() {
+    const products = db.getAllProducts();
+    const today = new Date();
+    return products.filter(product => {
+        if (!product.expiryDate) return false;
+        return new Date(product.expiryDate) < today;
+    });
 }
 
 // تحميل المنتجات
@@ -254,7 +286,7 @@ function loadProducts() {
     }
     
     products.forEach((product, index) => {
-        const status = product.quantity > 10 ? 
+        const status = product.quantity > (product.minQuantity || 5) ? 
             '<span class="badge badge-success">في المخزون</span>' : 
             '<span class="badge badge-danger">منخفض</span>';
             
@@ -263,7 +295,7 @@ function loadProducts() {
             <td>${index + 1}</td>
             <td>${product.name}</td>
             <td>${product.category}</td>
-            <td>${product.price.toFixed(2)} ر.ي</td>
+            <td>${product.price.toFixed(2)} ر.س</td>
             <td>${product.quantity}</td>
             <td>${status}</td>
             <td>
@@ -304,7 +336,7 @@ function searchProducts() {
     }
     
     products.forEach((product, index) => {
-        const status = product.quantity > 10 ? 
+        const status = product.quantity > (product.minQuantity || 5) ? 
             '<span class="badge badge-success">في المخزون</span>' : 
             '<span class="badge badge-danger">منخفض</span>';
             
@@ -313,7 +345,7 @@ function searchProducts() {
             <td>${index + 1}</td>
             <td>${product.name}</td>
             <td>${product.category}</td>
-            <td>${product.price.toFixed(2)} ر.ي</td>
+            <td>${product.price.toFixed(2)} ر.س</td>
             <td>${product.quantity}</td>
             <td>${status}</td>
             <td>
@@ -353,7 +385,10 @@ function showProductModal(product = null) {
         document.getElementById('product-name').value = product.name;
         document.getElementById('product-category').value = product.category;
         document.getElementById('product-price').value = product.price;
+        document.getElementById('product-cost').value = product.cost || '';
         document.getElementById('product-quantity').value = product.quantity;
+        document.getElementById('min-quantity').value = product.minQuantity || 5;
+        document.getElementById('product-barcode').value = product.barcode || '';
         document.getElementById('product-description').value = product.description || '';
         
         // إظهار الحقول الخاصة بكل فئة
@@ -390,7 +425,10 @@ function saveProduct() {
     const name = document.getElementById('product-name').value;
     const category = document.getElementById('product-category').value;
     const price = parseFloat(document.getElementById('product-price').value);
+    const cost = parseFloat(document.getElementById('product-cost').value) || 0;
     const quantity = parseInt(document.getElementById('product-quantity').value);
+    const minQuantity = parseInt(document.getElementById('min-quantity').value) || 5;
+    const barcode = document.getElementById('product-barcode').value;
     const description = document.getElementById('product-description').value;
     
     if (!name || !category || isNaN(price) || isNaN(quantity)) {
@@ -402,7 +440,10 @@ function saveProduct() {
         name,
         category,
         price,
+        cost,
         quantity,
+        minQuantity,
+        barcode,
         description
     };
     
@@ -449,6 +490,20 @@ function deleteProduct(productId) {
     }
 }
 
+// إعادة توريد منتج
+function restockProduct(productId) {
+    const product = db.getProductById(productId);
+    if (product) {
+        const newQuantity = prompt(`الكمية الحالية للمنتج ${product.name}: ${product.quantity}. أدخل الكمية الجديدة:`, product.quantity + 50);
+        if (newQuantity !== null && !isNaN(newQuantity)) {
+            product.quantity = parseInt(newQuantity);
+            db.updateProduct(product);
+            showToast('تم تحديث كمية المنتج بنجاح', 'success');
+            loadDashboard();
+        }
+    }
+}
+
 // تحميل نقطة البيع
 function loadPOS() {
     loadProductsForPOS();
@@ -469,7 +524,7 @@ function loadProductsForPOS() {
             productEl.setAttribute('data-id', product.id);
             productEl.innerHTML = `
                 <h4>${product.name}</h4>
-                <p>السعر: ${product.price.toFixed(2)} ر.ي</p>
+                <p>السعر: ${product.price.toFixed(2)} ر.س</p>
                 <p>المخزون: ${product.quantity}</p>
             `;
             productEl.addEventListener('click', () => {
@@ -495,7 +550,7 @@ function searchPOSProducts() {
             productEl.setAttribute('data-id', product.id);
             productEl.innerHTML = `
                 <h4>${product.name}</h4>
-                <p>السعر: ${product.price.toFixed(2)} ر.ي</p>
+                <p>السعر: ${product.price.toFixed(2)} ر.س</p>
                 <p>المخزون: ${product.quantity}</p>
             `;
             productEl.addEventListener('click', () => {
@@ -510,9 +565,7 @@ function searchPOSProducts() {
 function handleBarcodeInput(e) {
     if (e.key === 'Enter') {
         const barcode = this.value;
-        // في تطبيق حقيقي، سيتم البحث عن المنتج باستخدام الباركود
-        // هنا مجرد محاكاة
-        const product = db.getProductById(barcode);
+        const product = db.getProductByBarcode(barcode);
         
         if (product) {
             addToCart(product);
@@ -553,7 +606,7 @@ function addToCart(product) {
         cartItem.innerHTML = `
             <div class="cart-item-info">
                 <h4>${product.name}</h4>
-                <p>${product.price.toFixed(2)} ر.ي</p>
+                <p>${product.price.toFixed(2)} ر.س</p>
             </div>
             <div class="cart-item-controls">
                 <div class="quantity-control">
@@ -639,9 +692,9 @@ function updateCartTotal() {
     const tax = subtotal * (taxRate / 100);
     const total = subtotal + tax;
     
-    cartSubtotal.textContent = subtotal.toFixed(2) + ' ر.ي';
-    cartTax.textContent = tax.toFixed(2) + ' ر.ي';
-    cartTotal.textContent = total.toFixed(2) + ' ر.ي';
+    cartSubtotal.textContent = subtotal.toFixed(2) + ' ر.س';
+    cartTax.textContent = tax.toFixed(2) + ' ر.س';
+    cartTotal.textContent = total.toFixed(2) + ' ر.س';
 }
 
 // إظهار رسالة السلة الفارغة
@@ -668,6 +721,7 @@ function clearCart() {
 function completeSale() {
     const cartItems = document.getElementById('cart-items').querySelectorAll('.cart-item');
     const paymentMethod = document.querySelector('input[name="payment-method"]:checked');
+    const customerName = document.getElementById('customer-name').value || 'زائر';
     
     if (cartItems.length === 0) {
         showToast('السلة فارغة', 'error');
@@ -683,7 +737,8 @@ function completeSale() {
     const sale = {
         items: [],
         total: parseFloat(document.getElementById('cart-total').textContent),
-        paymentMethod: paymentMethod.value
+        paymentMethod: paymentMethod.value,
+        customer: customerName
     };
     
     // جمع العناصر المشتراة
@@ -700,40 +755,94 @@ function completeSale() {
     });
     
     // حفظ عملية البيع
-    db.addSale(sale);
+    const saleId = db.addSale(sale);
     
-    // طباعة الفاتورة (محاكاة)
-    printReceipt(sale);
+    // الحصول على بيانات الفاتورة الكاملة للطباعة
+    const completeSale = db.getAllSales().find(s => s.id === saleId);
+    
+    // طباعة الفاتورة إذا كان الخيار مفعلاً
+    if (db.getSettings().printReceipt) {
+        printReceipt(completeSale);
+    }
     
     // إعادة تعيين السلة
     clearCart();
+    document.getElementById('customer-name').value = '';
     
     showToast('تمت عملية البيع بنجاح', 'success');
     updateDashboardStats();
 }
 
-// طباعة الفاتورة (محاكاة)
+// طباعة الفاتورة
 function printReceipt(sale) {
-    // في تطبيق حقيقي، سيتم إنشاء نموذج فاتورة للطباعة
     const receiptWindow = window.open('', '_blank');
     receiptWindow.document.write(`
         <html>
         <head>
             <title>فاتورة البيع</title>
             <style>
-                body { font-family: Arial, sans-serif; direction: rtl; padding: 20px; }
-                .header { text-align: center; margin-bottom: 20px; }
-                .details { margin-bottom: 20px; }
-                table { width: 100%; border-collapse: collapse; }
-                th, td { padding: 8px; text-align: right; border-bottom: 1px solid #ddd; }
-                .total { font-weight: bold; font-size: 1.2em; }
-                .footer { margin-top: 30px; text-align: center; }
+                body { 
+                    font-family: Arial, sans-serif; 
+                    direction: rtl; 
+                    padding: 20px; 
+                    max-width: 300px;
+                    margin: 0 auto;
+                }
+                .header { 
+                    text-align: center; 
+                    margin-bottom: 20px; 
+                    border-bottom: 1px solid #eee;
+                    padding-bottom: 10px;
+                }
+                .store-name {
+                    font-size: 18px;
+                    font-weight: bold;
+                }
+                .details { 
+                    margin-bottom: 20px; 
+                }
+                table { 
+                    width: 100%; 
+                    border-collapse: collapse; 
+                    margin-bottom: 15px;
+                }
+                th, td { 
+                    padding: 5px; 
+                    text-align: right; 
+                    border-bottom: 1px solid #ddd; 
+                }
+                .total { 
+                    font-weight: bold; 
+                    font-size: 1.1em; 
+                    border-top: 2px solid #000;
+                    padding-top: 10px;
+                }
+                .footer { 
+                    margin-top: 30px; 
+                    text-align: center; 
+                    font-size: 0.9em;
+                    color: #777;
+                }
+                .thank-you {
+                    margin-top: 20px;
+                    font-weight: bold;
+                }
+                @media print {
+                    body {
+                        width: 58mm;
+                        margin: 0;
+                        padding: 0;
+                    }
+                }
             </style>
         </head>
         <body>
             <div class="header">
-                <h1>فاتورة بيع</h1>
-                <p>${new Date().toLocaleDateString('ar-SA')}</p>
+                <div class="store-name">${db.getSettings().storeName}</div>
+                <div>فاتورة بيع</div>
+                <div>${new Date(sale.date).toLocaleDateString('ar-SA')}</div>
+                <div>${new Date(sale.date).toLocaleTimeString('ar-SA')}</div>
+                <div>رقم الفاتورة: ${sale.id.slice(-6)}</div>
             </div>
             
             <div class="details">
@@ -753,8 +862,8 @@ function printReceipt(sale) {
                                 <tr>
                                     <td>${product.name}</td>
                                     <td>${item.quantity}</td>
-                                    <td>${item.price.toFixed(2)} ر.ي</td>
-                                    <td>${(item.quantity * item.price).toFixed(2)} ر.س</td>
+                                    <td>${item.price.toFixed(2)}</td>
+                                    <td>${(item.quantity * item.price).toFixed(2)}</td>
                                 </tr>
                             `;
                         }).join('')}
@@ -763,19 +872,36 @@ function printReceipt(sale) {
             </div>
             
             <div class="total">
-                <p>الإجمالي: ${sale.total.toFixed(2)} ر.ي</p>
-                <p>طريقة الدفع: ${getPaymentMethodName(sale.paymentMethod)}</p>
+                <table>
+                    <tr>
+                        <td>الإجمالي:</td>
+                        <td>${sale.total.toFixed(2)} ر.س</td>
+                    </tr>
+                    <tr>
+                        <td>طريقة الدفع:</td>
+                        <td>${getPaymentMethodName(sale.paymentMethod)}</td>
+                    </tr>
+                </table>
             </div>
             
             <div class="footer">
-                <p>شكراً لشرائك من متجرنا</p>
+                <div>شكراً لشرائك من متجرنا</div>
+                <div class="thank-you">نتمنى لك يومًا سعيدًا</div>
             </div>
+            
+            <script>
+                window.onload = function() {
+                    window.print();
+                    setTimeout(function() {
+                        window.close();
+                    }, 500);
+                }
+            </script>
         </body>
         </html>
     `);
     
     receiptWindow.document.close();
-    receiptWindow.print();
 }
 
 // الحصول على اسم طريقة الدفع
@@ -790,16 +916,104 @@ function getPaymentMethodName(method) {
 
 // تحميل التقارير
 function loadReports() {
-    // هذه وظيفة أساسية، في تطبيق حقيقي سيتم تطويرها أكثر
     generateSalesChart();
     generateInventoryReport();
+    loadReportFilters();
+}
+
+// تحميل عوامل التصفية للتقرير
+function loadReportFilters() {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    document.getElementById('report-from').value = firstDay.toISOString().split('T')[0];
+    document.getElementById('report-to').value = now.toISOString().split('T')[0];
 }
 
 // توليد رسم بياني للمبيعات
 function generateSalesChart() {
-    // هذه محاكاة للرسم البياني
-    const salesCtx = document.getElementById('sales-chart');
-    salesCtx.innerHTML = '<p style="text-align:center; padding: 50px;">رسم بياني للمبيعات (سيتم تنفيذه بمكتبة متخصصة)</p>';
+    const ctx = document.getElementById('sales-chart').getContext('2d');
+    
+    // إذا كان هناك رسم بياني موجود، قم بتدميره أولاً
+    if (currentChart) {
+        currentChart.destroy();
+    }
+    
+    // الحصول على بيانات المبيعات للشهر الحالي
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const sales = db.getSalesByDateRange(firstDay, now);
+    
+    // تجميع المبيعات حسب اليوم
+    const salesByDay = {};
+    const currentDate = new Date(firstDay);
+    
+    while (currentDate <= now) {
+        const dateStr = currentDate.toISOString().split('T')[0];
+        salesByDay[dateStr] = 0;
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    sales.forEach(sale => {
+        const saleDate = sale.date.split('T')[0];
+        if (salesByDay.hasOwnProperty(saleDate)) {
+            salesByDay[saleDate] += sale.total;
+        }
+    });
+    
+    const labels = Object.keys(salesByDay).map(date => {
+        const d = new Date(date);
+        return d.toLocaleDateString('ar-SA', {day: 'numeric', month: 'short'});
+    });
+    
+    const data = Object.values(salesByDay);
+    
+    // إنشاء الرسم البياني
+    currentChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'المبيعات اليومية',
+                data: data,
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 2,
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'تطور المبيعات الشهرية',
+                    font: {
+                        size: 16
+                    }
+                },
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'المبلغ (ر.س)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'التاريخ'
+                    }
+                }
+            }
+        }
+    });
 }
 
 // توليد تقرير المخزون
@@ -810,18 +1024,26 @@ function generateInventoryReport() {
     inventoryTable.innerHTML = '';
     
     if (products.length === 0) {
-        inventoryTable.innerHTML = '<tr><td colspan="5" class="text-center">لا توجد منتجات مسجلة</td></tr>';
+        inventoryTable.innerHTML = '<tr><td colspan="6" class="text-center">لا توجد منتجات مسجلة</td></tr>';
         return;
     }
     
+    let totalValue = 0;
+    let totalCost = 0;
+    
     products.forEach(product => {
-        const inventoryValue = product.price * product.quantity;
-        let status = '';
+        const value = product.price * product.quantity;
+        const cost = (product.cost || 0) * product.quantity;
+        const profit = value - cost;
         
-        if (product.quantity < 5) {
-            status = '<span class="badge badge-danger">منخفض جداً</span>';
-        } else if (product.quantity < 10) {
-            status = '<span class="badge badge-warning">منخفض</span>';
+        totalValue += value;
+        totalCost += cost;
+        
+        let status = '';
+        if (product.quantity < (product.minQuantity || 5)) {
+            status = '<span class="badge badge-danger">منخفض</span>';
+        } else if (product.quantity < (product.minQuantity || 5) * 2) {
+            status = '<span class="badge badge-warning">متوسط</span>';
         } else {
             status = '<span class="badge badge-success">جيد</span>';
         }
@@ -831,11 +1053,24 @@ function generateInventoryReport() {
             <td>${product.name}</td>
             <td>${product.category}</td>
             <td>${product.quantity}</td>
-            <td>${inventoryValue.toFixed(2)} ر.ي</td>
+            <td>${value.toFixed(2)} ر.س</td>
+            <td>${profit.toFixed(2)} ر.س</td>
             <td>${status}</td>
         `;
         inventoryTable.appendChild(row);
     });
+    
+    // إضافة صف المجموع
+    const footerRow = document.createElement('tr');
+    footerRow.className = 'table-footer';
+    footerRow.innerHTML = `
+        <td colspan="2"><strong>الإجمالي:</strong></td>
+        <td></td>
+        <td><strong>${totalValue.toFixed(2)} ر.س</strong></td>
+        <td><strong>${(totalValue - totalCost).toFixed(2)} ر.س</strong></td>
+        <td></td>
+    `;
+    inventoryTable.appendChild(footerRow);
 }
 
 // توليد التقرير
@@ -844,10 +1079,83 @@ function generateReport() {
     const fromDate = document.getElementById('report-from').value;
     const toDate = document.getElementById('report-to').value;
     
+    if (!fromDate || !toDate) {
+        showToast('يرجى تحديد تاريخ البداية والنهاية', 'error');
+        return;
+    }
+    
     // في تطبيق حقيقي، سيتم استخدام هذه المعايير لتصفية البيانات
     showToast('تم توليد التقرير بنجاح', 'success');
     generateSalesChart();
     generateInventoryReport();
+}
+
+// تهيئة ماسح الباركود
+function initBarcodeScanner() {
+    const video = document.getElementById('barcode-scanner');
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        document.getElementById('enable-camera').style.display = 'block';
+    } else {
+        document.getElementById('enable-camera').style.display = 'none';
+    }
+}
+
+// بدء مسح الباركود
+function startBarcodeScanner() {
+    const video = document.getElementById('barcode-scanner');
+    const scannerContainer = document.getElementById('scanner-container');
+    
+    scannerContainer.style.display = 'block';
+    
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+    .then(function(stream) {
+        video.srcObject = stream;
+        video.setAttribute("playsinline", true);
+        video.play();
+        requestAnimationFrame(tick);
+    })
+    .catch(function(err) {
+        showToast('تعذر الوصول إلى الكاميرا: ' + err.message, 'error');
+    });
+    
+    function tick() {
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "dontInvert",
+            });
+            
+            if (code) {
+                const product = db.getProductByBarcode(code.data);
+                if (product) {
+                    addToCart(product);
+                    showToast('تم مسح المنتج: ' + product.name, 'success');
+                } else {
+                    showToast('المنتج غير موجود', 'error');
+                }
+                stopBarcodeScanner();
+            }
+        }
+        requestAnimationFrame(tick);
+    }
+}
+
+// إيقاف مسح الباركود
+function stopBarcodeScanner() {
+    const video = document.getElementById('barcode-scanner');
+    const scannerContainer = document.getElementById('scanner-container');
+    
+    scannerContainer.style.display = 'none';
+    
+    if (video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+    }
 }
 
 // إظهار إشعار
