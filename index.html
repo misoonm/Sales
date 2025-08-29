@@ -88,7 +88,7 @@
         // التحقق من وجود مستخدم مسجل دخوله
         const currentUser = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
         if (currentUser) {
-            window.location.href = 'index.html';
+            window.location.href = 'dashboard.html';
         }
 
         // معالجة تسجيل الدخول
@@ -115,7 +115,7 @@
                 }
                 
                 // الانتقال إلى لوحة التحكم
-                window.location.href = 'index.html';
+                window.location.href = 'dashboard.html';
             } else {
                 // تسجيل الدخول فاشل
                 errorDiv.textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة';
