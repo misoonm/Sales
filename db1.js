@@ -121,8 +121,8 @@ class Database {
 
         // إضافة مستخدمين افتراضيين
         await this.add('users', {
-            username: 'admin',
-            password: 'admin123',
+            username: 'abdullah',
+            password: 'abd123ab',
             name: 'مدير النظام',
             role: 'مدير',
             createdAt: new Date()
