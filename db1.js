@@ -1,7 +1,7 @@
 // تهيئة قاعدة البيانات IndexedDB
 class Database {
     constructor() {
-        this.dbName = 'StoreManagementDB';
+        this.dbName = 'sale';
         this.version = 4; // زيادة الإصدار بسبب إضافة المرتجعات
         this.db = null;
     }
