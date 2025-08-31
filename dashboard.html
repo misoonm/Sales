@@ -718,6 +718,17 @@
             loadDashboardData();
             document.getElementById('store-name').textContent = localStorage.getItem('storeName') || 'متجري';
         });
+        // الحصول على إعداد محدد
+const enableBarcode = AppSettings.get('enableBarcode', true);
+
+if (enableBarcode) {
+    // تفعيل ميزة الباركود
+}
+
+// الحصول على الثيم الحالي
+const currentTheme = localStorage.getItem('theme') || 'light';
     </script>
+    <!-- في dashboard.html, products.html, pos.html, etc. -->
+<script src="settings.js"></script>
 </body>
 </html>
