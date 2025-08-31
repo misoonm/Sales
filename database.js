@@ -40,7 +40,7 @@ const DB = {
     }
     if (!localStorage.getItem('users')) {
       const defaultUsers = [
-        { id: 1, username: 'admin', password: 'admin123', name: 'مدير النظام', role: 'مدير' },
+        { id: 1, username: 'abdullah', password: 'abd123ab', name: 'مدير النظام', role: 'مدير' },
         { id: 2, username: 'user', password: 'user123', name: 'مستخدم عادي', role: 'مستخدم' }
       ];
       localStorage.setItem('users', JSON.stringify(defaultUsers));
