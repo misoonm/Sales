@@ -127,6 +127,20 @@ class Database {
             role: 'مدير',
             createdAt: new Date()
         });
+          await this.add('users', {
+            username: 'SeaStar',
+            password: 'seastar830',
+            name: 'مدير النظام',
+            role: 'مدير',
+            createdAt: new Date()
+        });
+        await this.add('users', {
+            username: '771212010',
+            password: '771212010',
+            name: 'مدير النظام',
+            role: 'مدير',
+            createdAt: new Date()
+        });
 
         await this.add('users', {
             username: 'user',
